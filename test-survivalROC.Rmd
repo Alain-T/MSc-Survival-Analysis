@@ -1,0 +1,134 @@
+```{r}
+library(survival)
+library(survivalROC)
+data(mayo)
+
+dat.full <- pbc
+dat.trial <- dat.full[!is.na(dat.full$trt),]
+dat.trial$event <- 0 + (dat.trial$status == 2)
+
+dat.sort <- dat.trial[order(dat.trial$event, dat.trial$time),]
+mayo.sort <- mayo[order(mayo$censor, mayo$time),]
+```
+
+```{r}
+dat.trial$mayoscore4 = NA
+dat.trial$mayoscore5 = NA
+
+for(ind in seq_along(dat.trial[,1])) {
+  time <- (mayo$time == dat.trial[ind,]$time)
+  event <- (mayo$censor == dat.trial[ind,]$event)
+  if (sum(time & event) != 1) {
+    indm <- which(time & event)[1]
+  }
+  else {
+    indm <- which(time & event)
+  }
+  dat.trial[ind,]$mayoscore4 = mayo[indm,]$mayoscore4
+  dat.trial[ind,]$mayoscore5 = mayo[indm,]$mayoscore5
+}
+
+sum(is.na(dat.trial$mayoscore4))
+sum(is.na(dat.trial$mayoscore5))
+
+rm(list=c("mayo", "mayo.sort", "dat.full", "dat.sort"))
+
+dat.trial_1 = subset(dat.trial,dat.trial$stage==1)
+dat.trial_2 = subset(dat.trial,dat.trial$stage==2)
+dat.trial_3 = subset(dat.trial,dat.trial$stage==3)
+dat.trial_4 = subset(dat.trial,dat.trial$stage==4)
+
+```
+
+
+
+```{r}
+hist(dat.trial$mayoscore4)
+```
+
+```{r}
+hist(dat.trial$mayoscore5)
+```
+
+The survival rate is rather high, about 40% at 12 year
+
+```{r}
+fit=survfit(Surv(time / 365.25, event) ~ 1, data = dat.trial)
+plot(fit)
+```
+
+survival at 5 years
+```{r}
+summary(fit, time=5)
+```
+
+```{r}
+summary(coxph(Surv(time,event)~mayoscore5, data=dat.trial))
+```
+```{r}
+summary(coxph(Surv(time,event)~mayoscore4, data=dat.trial))
+```
+as both p values are very small, we may use the conformance to pick the best model
+
+the ROC curves can be used to compared models if based on a single continuous covariate
+predict.time is the time point at which the prediction is made (see function help)
+
+```{r}
+dat.trial_p = dat.trial_3
+
+ROC.4 <- survivalROC(Stime = dat.trial_p$time,
+                     status = dat.trial_p$event,
+                     marker = dat.trial_p$mayoscore4,
+                     predict.time = 365.25 * 5,
+                     method="KM")
+ROC.5 <- survivalROC(Stime = dat.trial_p$time,
+                     status = dat.trial_p$event,
+                     marker = dat.trial_p$mayoscore5,
+                     predict.time = 365.25 * 5,
+                     method = "KM")
+```
+
+```{r}
+ROC <- list(mayo4 = ROC.4, mayo5 = ROC.5)
+sapply(ROC, "[[", "AUC")
+```
+compute True Positive and False Positive
+```{r}
+dfl <- lapply(ROC, function(x) with(x, data.frame(FP, TP)))
+for(nm in names(dfl)) {
+  dfl[[ nm ]]$marker <- nm
+}
+dat <- do.call(rbind, dfl)
+```
+
+plot AUC curve False Positive / True Positive
+```{r}
+library(ggplot2)
+ggplot(dat, aes(FP, TP, color = marker)) +
+  geom_line() +
+  theme_bw(base_size = 9)
+```
+use mayo5 because it has the lowest AUC
+10% value is an arbitrary value
+```{r}
+cutoff <- with(ROC$mayo4, min(cut.values[FP <= 0.1]))
+```
+## 7.511961
+
+```{r}
+dat.trial_p$prediction <-
+  ifelse(dat.trial_p$mayoscore4 <= cutoff,
+         "low_risk", "high_risk")
+```
+
+the curves are displayed in alphabetical order
+the split is optimal at 5 years because this is the point that was selected
+
+```{r}
+fit.KM <- survfit(Surv(time/365, event) ~ prediction, data = dat.trial_p)
+plot(fit.KM, col = c("red", "blue"))
+```
+```{r}
+fit.KM
+```
+

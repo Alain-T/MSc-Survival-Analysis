@@ -1,0 +1,67 @@
+---
+title: 'The pbc trial'
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r}
+M.full2=coxph(Surv(timeYears, event) ~ trt+age+sex+ascites+hepato+spiders+edema+
+               log(bili)+albumin+alk.phos+ast+protime+stage+chol_fxd+trig_fxd+
+               copper_fxd+platelet_fxd, data = dat.trial)
+M.AIC3 <- step (M.full2, trace=0)
+# summary(M.AIC3)
+
+# model manually adjusted from M.AIC3
+M.AIC4 <- coxph(Surv(timeYears, event) ~ age + edema + log(bili) + albumin + protime + copper_fxd, data = dat.trial)
+summary(M.AIC4)
+
+fits <- list(M.full2 = M.full2, M.AIC3 = M.AIC3, M.AIC4 = M.AIC4)
+sapply(fits, AIC)
+```
+
+
+```{r}
+library(survivalROC)
+
+dat.cov <- subset(dat.trial, select=c("age", "albumin", "protime", "copper_fxd"))
+
+dat.cov$"log(bili)" <- log(dat.trial$bili)
+
+dat.cov$edemamanaged <- 0+(dat.trial$edema=="managed")
+dat.cov$edemaedema <- 0+(dat.trial$edema=="edema")
+
+dat.cov <- dat.cov[, names(M.AIC4$coefficients)]
+
+# consistency check
+if ((length(names(M.AIC4$coefficients))==length(names(dat.cov))) &&
+    all(names(M.AIC4$coefficients)==names(dat.cov))) {
+  dat.trial$mayo6 = as.vector(M.AIC4$coefficients %*% t(dat.cov))
+  
+  ROC.6 <- survivalROC(Stime = dat.trial$timeYears,
+                     status = dat.trial$event,
+                     marker = dat.trial$mayo6,
+                     predict.time = 365.25 * 5,
+                     method="KM")
+  cutoff <- with(ROC.6, min(cut.values[FP <= 0.10]))
+
+  dat.trial$prediction <-
+  ifelse(dat.trial$mayo6 <= cutoff,
+         "low_risk", "high_risk")
+  
+  fit.KM <- survfit(Surv(timeYears, event) ~ prediction, data = dat.trial)
+  plot(fit.KM, col = c("red", "blue"))
+  title(main="survival time according to mayo6 prediction")
+} else {
+  cat("data error")
+}
+```
+
+
+```{r}
+  library(ggplot2)
+  ROC = data.frame(FP=ROC.6$FP,TP=ROC.6$TP)
+  ggplot(ROC, aes(FP, TP)) +
+  geom_line() +
+  theme_bw(base_size = 12)
+```

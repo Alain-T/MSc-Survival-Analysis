@@ -1,0 +1,99 @@
+---
+title: 'One sample survival analysis: the pbc trial'
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r}
+library(survival)
+#library(asaur)
+```
+
+# very first step : check the data looking for importation problems
+
+```{r}
+str(pbc)
+help(pbc)
+```
+
+```{r}
+dat.full = pbc
+dat.full$timeYears <- dat.full$time / 365.25
+
+# convert factor variables
+dat.full$ascites <- factor(dat.full$ascites)
+dat.full$edema   <- factor(dat.full$edema  )
+dat.full$hepato  <- factor(dat.full$hepato )
+dat.full$spiders <- factor(dat.full$spiders)
+dat.full$stage   <- factor(dat.full$stage  )
+dat.full$status  <- factor(dat.full$status )
+dat.full$trt     <- factor(dat.full$trt    )
+
+dat.full$sex  <- factor(dat.full$sex, levels=c('m','f'), labels = c("male", "female"))
+
+levels(dat.full$ascites)[levels(dat.full$ascites)=="0"] <- "absence"
+levels(dat.full$ascites)[levels(dat.full$ascites)=="1"] <- "presence"
+
+levels(dat.full$hepato)[levels(dat.full$hepato)=="0"] <- "absence"
+levels(dat.full$hepato)[levels(dat.full$hepato)=="1"] <- "presence"
+
+levels(dat.full$spiders)[levels(dat.full$spiders)=="0"] <- "absence"
+levels(dat.full$spiders)[levels(dat.full$spiders)=="1"] <- "presence"
+
+levels(dat.full$edema)[levels(dat.full$edema)=="0"] <- "none"
+levels(dat.full$edema)[levels(dat.full$edema)=="0.5"] <- "managed"
+levels(dat.full$edema)[levels(dat.full$edema)=="1"] <- "edema"
+
+levels(dat.full$status)[levels(dat.full$status)=="0"] <- "censored"
+levels(dat.full$status)[levels(dat.full$status)=="1"] <- "transplant"
+levels(dat.full$status)[levels(dat.full$status)=="2"] <- "dead"
+
+levels(dat.full$trt)[levels(dat.full$trt)=="1"] <- "D-penicillamine"
+levels(dat.full$trt)[levels(dat.full$trt)=="2"] <- "placebo"
+
+tmp <- addNA(dat.full$trt)
+levels(tmp) <- c(levels(dat.full$trt), "control")
+dat.full$trt <- tmp
+remove("tmp")
+
+# transplant are considered as censored
+dat.full$event <- 0 + (dat.full$status == "dead")
+
+# boolean indicating if the observation is in the trial or not
+dat.full$trial=(dat.full$trt!="control")
+
+summary(dat.full)
+```
+
+
+# How many events, how many censored data points?
+```{r}
+table(dat.full$status, dat.full$trt)
+```
+
+```{r}
+with(dat.full, mosaicplot(table(trt, status)))
+```
+
+
+```{r}
+plot(dat.full$sex)
+hist(dat.full$age)
+```
+
+# Note that the definition of censoring depends on what's the quantity of interest.
+# If we're interested in measuring the follow-up time, event is to be 'inverted':
+```{r}
+dat.full$followUp <- 1 - dat.full$event
+fit.followUp <- survfit(Surv(timeYears, followUp) ~ trt, data = dat.full, conf.type = "log-log")
+fit.followUp
+
+plot(fit.followUp, col = 1:3)
+legend("topright", lty = 1, col = 1:3, legend = names(fit.followUp$strata))
+title(main='follow up time per per treatment (Kaplan-Meier estimator)')
+remove("fit.followUp")
+```
+
+```{r}
+```

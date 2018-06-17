@@ -1,0 +1,80 @@
+---
+title: 'The pbc trial'
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r}
+dat.trial = dat.full[dat.full$trial,]
+dat.trial$trt = factor(dat.trial$trt)
+```
+
+```{r}
+for(v in names(dat.trial))
+{
+  nb_na = sum(is.na(dat.trial[[v]]))
+  if (nb_na > 0)
+  {
+    cat(v, "=", nb_na, "\n")
+  }
+}
+rm("v", "nb_na")
+```
+
+# chol median
+```{r}
+chol_median <- median(dat.trial$chol, na.rm=TRUE)
+chol_median
+chol_na <- is.na(dat.trial$chol)
+
+dat.trial$chol_fxd = dat.trial$chol
+
+dat.trial$chol_fxd[chol_na] <- chol_median
+rm("chol_median", "chol_na")
+```
+
+# trig median
+```{r}
+trig_median <- median(dat.trial$trig, na.rm=TRUE)
+trig_median
+trig_na <- is.na(dat.trial$trig)
+
+dat.trial$trig_fxd = dat.trial$trig
+
+dat.trial$trig_fxd[trig_na] <- trig_median
+rm("trig_median", "trig_na")
+```
+
+# copper median
+```{r}
+copper_median <- median(dat.trial$copper, na.rm=TRUE)
+copper_median
+copper_na <- is.na(dat.trial$copper)
+
+dat.trial$copper_fxd = dat.trial$copper
+
+dat.trial$copper_fxd[copper_na] <- copper_median
+rm("copper_median", "copper_na")
+```
+
+# platelet median
+```{r}
+platelet_median <- median(dat.trial$platelet, na.rm=TRUE)
+platelet_median
+platelet_na <- is.na(dat.trial$platelet)
+
+dat.trial$platelet_fxd = dat.trial$platelet
+
+dat.trial$platelet_fxd[platelet_na] <- platelet_median
+rm("platelet_median", "platelet_na")
+```
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+ggplot(dat.trial, aes(hepato, chol)) + geom_boxplot() + theme_bw()
+```
+

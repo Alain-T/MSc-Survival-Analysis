@@ -1,0 +1,77 @@
+---
+title: 'The pbc trial'
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r}
+for(v in names(dat.trial))
+{
+    cat(v, "+")
+}
+```
+
+# chol lm
+```{r}
+# dat.trial$chol_work = dat.trial$chol
+# l=lm(chol_work~1, data=dat.trial)
+# summary(l)
+
+l=lm(chol_work~age+sex+ascites+hepato+spiders+edema+bili+albumin+copper+alk.phos+ast+trig+platelet+protime+stage, data=dat.trial)
+summary(l)
+
+# F statistic p value (very low)
+# check R squared (should be close to 1)
+# individual p values
+l=lm(chol_work~edema+bili+ast+platelet, data=dat.trial)
+summary(l)
+
+# check noise gaussiannity
+shapiro.test(l$residuals)
+```
+```{r}
+
+# check heteroschedasticity
+plot(l$fitted.values, l$residuals)
+
+dat.trial$chol_work=rep(NA, 312)
+dat.trial$chol_work=predict(l, dat.trial)
+hist(100*(dat.trial$chol_work-dat.trial$chol)/dat.trial$chol, breaks=12)
+```
+
+# trig lm
+```{r}
+dat.trial$trig_work = dat.trial$trig
+l=lm(trig_work~1, data=dat.trial)
+summary(l)
+
+#l=lm(trig_work~age+sex+ascites+hepato+spiders+edema+bili+albumin+copper+alk.phos+ast+platelet+protime+stage+chol, data=dat.trial)
+#summary(l)
+
+# F statistic p value (very low)
+# check R squared (should be close to 1)
+# individual p values
+l=lm(trig_work~ascites+edema+bili+protime, data=dat.trial)
+summary(l)
+
+# check noise gaussiannity
+shapiro.test(l$residuals)
+```
+```{r}
+# check heteroschedasticity
+plot(l$fitted.values, l$residuals)
+
+dat.trial$trig_work=rep(NA, 418)
+dat.trial$trig_work=predict(l, dat.trial)
+hist(100*(dat.trial$trig_work-dat.trial$trig)/dat.trial$trig)
+```
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+ggplot(dat.trial, aes(hepato, chol)) + geom_boxplot() + theme_bw()
+```
+

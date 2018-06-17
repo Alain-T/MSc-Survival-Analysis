@@ -1,0 +1,149 @@
+---
+title: 'The pbc trial'
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+
+```{r}
+paste(names(dat.trial), collapse="+")
+```
+
+# full model (build from output above):
+# trt+age+sex+ascites+hepato+spiders+edema+bili+albumin+alk.phos+ast+protime+stage+chol_fxd+trig_fxd+copper_fxd+platelet_fxd
+
+```{r}
+M.full=coxph(Surv(timeYears, event) ~ trt+age+sex+ascites+hepato+spiders+edema+
+               bili+albumin+alk.phos+ast+protime+stage+chol_fxd+trig_fxd+
+               copper_fxd+platelet_fxd, data = dat.trial)
+summary(M.full)
+```
+
+# use a step approach to build a reduced model
+```{r}
+M.AIC <- step (M.full, trace=0)
+summary(M.AIC)
+
+fits <- list(M.full = M.full, M.AIC = M.AIC)
+sapply(fits, AIC)
+```
+
+# check the proportionality of hazard for each variable
+# H0: proportionality of hazard
+
+```{r}
+cox.zph(M.AIC)
+```
+
+
+```{r}
+M.AIC2=coxph(Surv(timeYears, event) ~ age + edema + bili + albumin + ast + protime + copper_fxd + stage, data = dat.trial)
+summary(M.AIC2)
+
+fits <- list(M.full = M.full, M.AIC = M.AIC, M.AIC2 = M.AIC2)
+sapply(fits, AIC)
+```
+
+
+```{r}
+table(dat.trial$stage)
+plot(
+  survfit(Surv(timeYears, event) ~ stage, data = dat.trial),
+  fun="cloglog", col = 1:4)
+title(main='survival time per stage (log-log scale)')
+```
+
+# age + edema + bili + albumin + ast + protime + copper_fxd + strata(stage)
+
+```{r}
+M.AIC_StrStage=coxph(Surv(timeYears, event) ~ age + edema + bili + albumin + ast + protime + copper_fxd + strata(stage), data = dat.trial)
+summary(M.AIC_StrStage)
+
+fits <- list(M.full = M.full, M.AIC = M.AIC, M.AIC_StrStage=M.AIC_StrStage)
+sapply(fits, AIC)
+```
+
+# age + bili + albumin + ast + protime + copper_fxd + strata(stage, edema)
+
+```{r}
+table(dat.trial$stage, dat.trial$edema)
+
+M.AIC_StrStageEdema=coxph(Surv(timeYears, event) ~ age + bili + albumin + ast + protime + copper_fxd + strata(stage, edema), data = dat.trial)
+summary(M.AIC_StrStageEdema)
+
+fits <- list(M.AIC = M.AIC, M.AIC_StrStage=M.AIC_StrStage, M.AIC_StrStageEdema=M.AIC_StrStageEdema)
+sapply(fits, AIC)
+```
+
+
+# age + edema + bili + albumin + ast + protime + copper_fxd + strata(stage, sex)
+
+```{r}
+table(dat.trial$stage, dat.trial$sex)
+
+M.AIC_StrStageSex=coxph(Surv(timeYears, event) ~ age + edema + bili + albumin + ast + protime + copper_fxd + strata(stage, sex), data = dat.trial)
+summary(M.AIC_StrStageSex)
+
+fits <- list(M.AIC = M.AIC, M.AIC_StrStage=M.AIC_StrStage, M.AIC_StrStageSex=M.AIC_StrStageSex)
+sapply(fits, AIC)
+```
+
+
+```{r}
+hist(dat.trial$bili)
+
+dat.trial$biliCat <- cut(dat.trial$bili, breaks=quantile(dat.trial$bili), include.lowest = TRUE)
+
+table(dat.trial$biliCat)
+
+fit.biliCat <- survfit(Surv(timeYears, event) ~ biliCat, data = dat.trial)
+plot(fit.biliCat, fun="cloglog", col = 1:4)
+legend("topleft", lty = 1, col = 1:4, legend = names(fit.biliCat$strata))
+title(main='survival time per biliCat (log-log scale)')
+```
+
+
+```{r}
+M.AIC_StrStage_BiliCat=coxph(Surv(timeYears, event) ~ age + edema + biliCat + albumin + ast + protime + copper_fxd + strata(stage), data = dat.trial)
+summary(M.AIC_StrStage_BiliCat)
+
+fits <- list(M.AIC = M.AIC, M.AIC_StrStage=M.AIC_StrStage, M.AIC_StrStage_BiliCat=M.AIC_StrStage_BiliCat)
+
+sapply(fits, AIC)
+```
+
+```{r}
+biliQuant=quantile(dat.trial$bili)
+dat.trial$biliCat2 <- cut(dat.trial$bili, breaks=biliQuant[-2], include.lowest = TRUE)
+
+table(dat.trial$biliCat2)
+fit.biliCat2 <- survfit(Surv(timeYears, event) ~ biliCat2, data = dat.trial)
+plot(fit.biliCat2, fun="cloglog", col = 1:4)
+legend("topleft", lty = 1, col = 1:3, legend = names(fit.biliCat2$strata))
+title(main='survival time per biliCat2 (log-log scale)')
+```
+
+
+```{r}
+M.AIC_StrStage_BiliCat2=coxph(Surv(timeYears, event) ~ age + edema + biliCat2 + albumin + ast + protime + copper_fxd + strata(stage), data = dat.trial)
+summary(M.AIC_StrStage_BiliCat2)
+
+cox.zph(M.AIC_StrStage_BiliCat2)
+
+fits <- list(M.AIC = M.AIC, M.AIC_StrStage=M.AIC_StrStage, M.AIC_StrStage_BiliCat2=M.AIC_StrStage_BiliCat2)
+
+sapply(fits, AIC)
+```
+
+
+```{r}
+M.AIC_StrStage_BiliLog=coxph(Surv(timeYears, event) ~ age + edema + log(bili) + albumin + ast + protime + copper_fxd + strata(stage), data = dat.trial)
+summary(M.AIC_StrStage_BiliLog)
+
+cox.zph(M.AIC_StrStage_BiliLog)
+
+fits <- list(M.AIC = M.AIC, M.AIC_StrStage=M.AIC_StrStage, M.AIC_StrStage_BiliLog=M.AIC_StrStage_BiliLog)
+
+sapply(fits, AIC)
+```
